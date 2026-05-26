@@ -675,8 +675,8 @@ function PostInstall {
     Step 'Post-install: installing apps and wallpapers'
 
     if (Confirm 'Download default APKs and wallpapers from GitHub?') {
-        $repo = Read-Host "   Enter GitHub repo [gc04-ai/q25-collection]"
-        if (-not $repo) { $repo = 'gc04-ai/q25-collection' }
+        $repo = Read-Host "   Enter GitHub repo [gc04-ai/q25-lineage-installer]"
+        if (-not $repo) { $repo = 'gc04-ai/q25-lineage-installer' }
         
         # Ensure target folders exist
         if (-not (Test-Path $APK_FOLDER)) { New-Item -ItemType Directory -Path $APK_FOLDER -Force | Out-Null }

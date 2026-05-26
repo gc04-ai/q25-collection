@@ -870,7 +870,11 @@ function Main {
   if (Confirm 'Run post-install (APKs + wallpapers)?') { PostInstall }
 
   # Banner
+  Write-Host ""
+  ShowWatermelon
   Write-Host "  All done! Enjoy LineageOS on your $OEM $DEVICE." -ForegroundColor Green
+  Write-Host ""
+  
 }
 
 # quick-run: .\install-lineageos-q25.ps1 -postinstall  (or -imei, -remediate, -bootloader, -unlock)

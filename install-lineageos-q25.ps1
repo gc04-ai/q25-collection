@@ -62,12 +62,8 @@ function Banner {
   Write-Host "  $SCRIPT_NAME" -ForegroundColor Cyan
   Write-Host "  Device: $OEM $DEVICE" -ForegroundColor Cyan
   Write-Host ('=' * 55) -ForegroundColor Cyan
-  Write-Host ""
-  Ok "Work dir:     $WORK_DIR"    
-  Ok "APKs:         $APK_FOLDER"   
-  Ok "Wallpapers:   $WALLPAPER_DIR" 
-  Write-Host ""
-  Write-Host -ForegroundColor Green @'
+  ShowWatermelon
+  Write-Host -ForegroundColor Cyan @'
 Automated LineageOS 23.2 installer for Zinwa Q25 Pro.
 
 Steps (all interactive / guided):
@@ -79,10 +75,12 @@ Steps (all interactive / guided):
   6. Sideload ROM           Factory reset, sideload LineageOS + GApps
   7. Post-install           Install APKs, push wallpapers via ADB
 '@
+  Ok "Work dir:     $WORK_DIR"    
+  Ok "APKs:         $APK_FOLDER"   
+  Ok "Wallpapers:   $WALLPAPER_DIR" 
   Info "[optional] You can stage files in Work Dir, APKs, and Wallpaper."
   Info "[default] You can let the script download everything for you."
-  Warn 'Run as Administrator for best results.'
-  ShowWatermelon
+  Warn 'Run as Administrator for best results'
   Pause
 }
 
@@ -139,17 +137,15 @@ function DownloadFile {
 
 function ShowWatermelon {
     Write-Host ""
-    Write-Host "       /\       " -ForegroundColor Red
-    Write-Host "      /  \      " -ForegroundColor Red
-    Write-Host "     / o  \     " -ForegroundColor Red
-    Write-Host "    /      \    " -ForegroundColor Red
-    Write-Host "   / o    o \   " -ForegroundColor Red
-    Write-Host "  /    o     \  " -ForegroundColor Red
-    Write-Host " / o      o   \ " -ForegroundColor Red
-    Write-Host "/______________\" -ForegroundColor Red
-    Write-Host "\______________/" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "  Happy Flashing!" -ForegroundColor Cyan
+    Write-Host "         /\       " -ForegroundColor Red
+    Write-Host "        /  \      " -ForegroundColor Red
+    Write-Host "       / o  \     " -ForegroundColor Red
+    Write-Host "      /      \    " -ForegroundColor Red
+    Write-Host "     / o    o \   " -ForegroundColor Red
+    Write-Host "    /    o     \  " -ForegroundColor Red
+    Write-Host "   / o      o   \ " -ForegroundColor Red
+    Write-Host "  /______________\" -ForegroundColor Red
+    Write-Host "  \______________/" -ForegroundColor Green
     Write-Host ""
 }
 

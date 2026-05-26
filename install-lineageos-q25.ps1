@@ -47,7 +47,7 @@ $PLATFORM_TOOLS  = 'https://dl.google.com/android/repository/platform-tools-late
 $GAPPS_URL       = 'https://github.com/MindTheGapps/16.0.0-arm64/releases/latest/download/MindTheGapps-16.0.0-arm64-20260409_073023.zip'
 $GAPPS_API       = 'https://api.github.com/repos/MindTheGapps/16.0.0-arm64/releases/latest'
 $LINEAGE_API     = "https://download.lineageos.org/api/v2/devices/$DEVICE/builds"
-$SF_BASE         = 'https://sourceforge.net/projects/noprincesshere/files/lineage-23.2/Q25/05212026'
+$SF_BASE         = 'https://sourceforge.net/projects/noprincesshere/files/lineage-23.2/Q25/20260519'
 $SF_HASHES       = @{
   'lineage-23.2-20260519-UNOFFICIAL-GMS-Q25.zip' = '64d8a6097048756e56032b37085e2988642ea157237bcc9454aa4aff3c74816c'
 }

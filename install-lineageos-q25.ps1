@@ -586,7 +586,7 @@ function Sideload {
   Write-Host '   2. Confirm the format, then return to main menu' -ForegroundColor Yellow
   Write-Host '   3. Unplug and re-plug the USB cable (this wakes up ADB on some devices)' -ForegroundColor Yellow
   Write-Host '   4. Select: Apply update - Apply from ADB' -ForegroundColor Yellow
-  Write-Host '   5. The device will show "Waiting for ADB sideload..."' -ForegroundColor Yellow
+  Write-Host '   5. The device will show "Now send the package you want to apply..."' -ForegroundColor Yellow
   Write-Host ''
   Pause
 

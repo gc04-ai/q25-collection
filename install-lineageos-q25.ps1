@@ -125,6 +125,9 @@ function CheckAdmin {
 
 function InstallTools {
   Step 'Checking ADB and fastboot'
+
+  # FIX: Actually define ADB_DIR before calling it later.
+  $ADB_DIR = "$env:USERPROFILE\platform-tools"
   $need = $false
   if (-not (HasCmd adb))     { Info 'adb not found'; $need = $true }
   if (-not (HasCmd fastboot)) { Info 'fastboot not found'; $need = $true }

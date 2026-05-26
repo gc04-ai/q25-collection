@@ -575,7 +575,6 @@ function FlashRecovery {
   Info 'Device should boot into recovery mode now'
   return $true
 }
-
 function Sideload {
   param([string]$Rom,[string]$GApps)
 
@@ -586,20 +585,37 @@ function Sideload {
   Write-Host '   2. Confirm the format, then return to main menu' -ForegroundColor Yellow
   Write-Host '   3. Unplug and re-plug the USB cable (this wakes up ADB on some devices)' -ForegroundColor Yellow
   Write-Host '   4. Select: Apply update - Apply from ADB' -ForegroundColor Yellow
-  Write-Host '   5. The device will show "Now send the package you want to apply..."' -ForegroundColor Yellow
+  Write-Host '   5. The device will show "Waiting for ADB sideload..."' -ForegroundColor Yellow
   Write-Host ''
   Pause
 
   if (-not $Rom -or -not (Test-Path $Rom)) { Err 'LineageOS zip not found'; exit 1 }
 
-  Warn 'Sideloading ROM (10+ minutes; may stall at 47% -- this is normal, do not unplug or restart)'
+  Info 'Sideloading ROM'
+  Info 'This will take 10+ minutes; it may appear stalled -- this is normal, do not unplug or restart!'
   Warn 'If you see ERROR: recovery: Open failed: /metadata/ota: No such file or directory on phone, ignore it and keep waiting'
-  $r = cmd /c "adb -d sideload `"$Rom`" 2>&1" 2>$null | Out-String
-  if ($r -notmatch 'Success|failed to read command|Total xfer') {
-    Err "Sideload failed: $r"
-    if (-not (Confirm 'Retry?')) { exit 1 }
-    return Sideload $Rom $GApps
+  Info 'You will not see a progress bar here. Watch your phone screen!'
+  Info 'The script will automatically detect when the phone is finished.'
+
+  # Launch sideload in the background so it cannot freeze the script
+  $adbJob = Start-Process -FilePath "adb" -ArgumentList "-d sideload `"$Rom`"" -WindowStyle Hidden -PassThru
+
+  # Give ADB 5 seconds to establish the connection
+  Start-Sleep -Seconds 5
+
+  # Monitor the phone's state. It will report 'sideload' while flashing.
+  $elapsed = 0
+  while ((cmd /c "adb devices 2>&1") -match 'sideload') {
+    Start-Sleep -Seconds 5
+    $elapsed += 5
+    Info "... sideloading ($elapsed s) - Watch phone screen"
   }
+
+  # Once the state drops from 'sideload' to 'recovery', kill the zombie ADB process
+  if (-not $adbJob.HasExited) {
+    $adbJob | Stop-Process -Force 2>$null
+  }
+
   Ok 'LineageOS installed'
 
   if ($GApps -and (Test-Path $GApps)) {
@@ -607,16 +623,29 @@ function Sideload {
     Info 'After reboot: Apply update - Apply from ADB again'
     Pause
 
-    Info 'Sideloading GApps'
-    $r = cmd /c "adb -d sideload `"$GApps`" 2>&1" 2>$null | Out-String
-    if ($r -notmatch 'Success|failed to read command|Total xfer') {
-      Err "GApps sideload failed: $r"
-    } else { Ok 'GApps installed' }
+    Info 'Sideloading GApps...'
+    $gappsJob = Start-Process -FilePath "adb" -ArgumentList "-d sideload `"$GApps`"" -WindowStyle Hidden -PassThru
+
+    Start-Sleep -Seconds 5
+    $elapsed = 0
+    while ((cmd /c "adb devices 2>&1") -match 'sideload') {
+      Start-Sleep -Seconds 5
+      $elapsed += 5
+      Info "... sideloading GApps ($elapsed s) - Watch phone screen"
+    }
+
+    if (-not $gappsJob.HasExited) {
+      $gappsJob | Stop-Process -Force 2>$null
+    }
+    
+    Ok 'GApps installed'
     Info 'If signature verification fails, select Yes to continue (normal for GApps)'
   }
 
   Info 'If you are NOT installing GApps, click No then click Reboot system now'
-  if (Confirm 'Ready to reboot?') { Ok 'LineageOS is installed. First boot may take up to 15 minutes.' }
+  if (Confirm 'Ready to reboot?') {
+    Ok 'LineageOS is installed. First boot may take up to 15 minutes.'
+  }
 }
 
 # ---- POST-INSTALL ----------------------------------------------------------

@@ -347,21 +347,22 @@ function WaitDevice {
   Info "Waiting for device in $Mode mode ($Label)"
   $timeout = 120; $elapsed = 0
   
-  # Inject the manual binding instructions if we are waiting for fastboot
-  if ($Mode -eq 'fastboot') {
-    Write-Host ' '
-    Warn 'If the script hangs here, Windows failed to auto-attach the driver!'
-    Write-Host '   1. Open Device Manager and find the yellow (!) device.' -ForegroundColor Yellow
-    Write-Host '   2. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
-    Write-Host '   3. Select "Android Device" -> "Android Bootloader Interface"' -ForegroundColor Yellow
-    Write-Host '   4. Press enter back in this window if still hung"' -ForegroundColor Yellow
-    Write-Host ' '
-  }
-
   while ($elapsed -lt $timeout) {
     if (CheckDevice $Mode) { return $true }
     Start-Sleep -Seconds 5; $elapsed += 5
     Info ("... waiting " + $elapsed + ' s')
+
+    # Drop the manual instructions exactly once, only if the device is actually hanging
+    if ($elapsed -eq 5 -and $Mode -eq 'fastboot') {
+      Write-Host ' '
+      Warn 'If the script hangs here, Windows failed to auto-attach the driver!'
+      Write-Host '   1. Open Device Manager and find the yellow (!) device.' -ForegroundColor Yellow
+      Write-Host '   2. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
+      Write-Host '   3. Select "Android Device" -> "Android Bootloader Interface" -> Click Yes' -ForegroundColor Yellow
+      Write-Host ' '
+      Write-Host '   (Do NOT close this window! The script will automatically resume the second the driver applies)' -ForegroundColor Cyan
+      Write-Host ' '
+    }
   }
   return $false
 }

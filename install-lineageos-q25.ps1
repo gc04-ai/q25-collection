@@ -214,15 +214,17 @@ function InstallTools {
 }
 
 function InstallFastbootDriver {
-  # Check our memory flag first
-  $flagFile = Join-Path $WORK_DIR '.driver_staged'
-  if (Test-Path $flagFile) {
-    # Silently skip if we've already done this on a previous run
+  Step 'Checking Fastboot Drivers'
+
+  Info 'Querying Windows Driver Store...'
+  # Check if the Google driver's original filename exists in the local driver store
+  $driverExists = [bool](pnputil /enum-drivers 2>$null | Select-String 'android_winusb.inf' -Quiet)
+
+  if ($driverExists) {
+    Ok 'Google Fastboot Driver OK'
     return 
   }
 
-  Step 'Checking Fastboot Drivers'
-  
   $driverZip = Join-Path $env:TEMP 'google_usb_driver.zip'
   $driverDir = Join-Path $env:TEMP 'google_usb_driver_extract'
   $infPath   = Join-Path $driverDir 'usb_driver\android_winusb.inf'
@@ -248,19 +250,8 @@ function InstallFastbootDriver {
   if ($r -match 'Failed') {
     Warn 'Driver installation reported a failure.'
   } else {
-    Ok 'Google Fastboot Driver successfully staged in Windows.'
-    # Create the memory flag so we never bother the user with this again
-    New-Item -ItemType File -Path $flagFile -Force | Out-Null
+    Ok 'Google Fastboot Driver OK'
   }
-
-  Write-Host ''
-  Warn 'If the device is still not recognized in fastboot, you must manually apply the driver:'
-  Write-Host '   1. Open Windows Device Manager (Right-click Start Button -> Device Manager)' -ForegroundColor Yellow
-  Write-Host '   2. Find the device with a yellow (!) mark (usually under Other Devices -> Android or Zinwa)' -ForegroundColor Yellow
-  Write-Host '   3. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
-  Write-Host '   4. Select "Android Device" -> "Android Bootloader Interface" -> Click Yes to confirm' -ForegroundColor Yellow
-  Write-Host ''
-  Pause
 }
 
 function CheckImei {
@@ -355,6 +346,17 @@ function WaitDevice {
   param([string]$Mode,[string]$Label)
   Info "Waiting for device in $Mode mode ($Label)"
   $timeout = 120; $elapsed = 0
+  
+  # Inject the manual binding instructions if we are waiting for fastboot
+  if ($Mode -eq 'fastboot') {
+    Write-Host ' '
+    Warn 'If the script hangs here, Windows failed to auto-attach the driver!'
+    Write-Host '   1. Open Device Manager and find the yellow (!) device.' -ForegroundColor Yellow
+    Write-Host '   2. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
+    Write-Host '   3. Select "Android Device" -> "Android Bootloader Interface"' -ForegroundColor Yellow
+    Write-Host ' '
+  }
+
   while ($elapsed -lt $timeout) {
     if (CheckDevice $Mode) { return $true }
     Start-Sleep -Seconds 5; $elapsed += 5

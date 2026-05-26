@@ -13,6 +13,8 @@ Automated PowerShell script to install LineageOS 23.2 on the Zinwa Q25 Pro, incl
 
 ```
 iwr "https://raw.githubusercontent.com/gc04-ai/q25-collection/refs/heads/main/install-lineageos-q25.ps1" -o "install-lineageos-q25.ps1"
+```
+```
 powershell -ExecutionPolicy Bypass -File install-lineageos-q25.ps1
 ```
 

@@ -236,7 +236,6 @@ function InstallFastbootDriver {
   }
 
   Info 'Installing driver to Windows (pnputil)...'
-  # /add-driver stages it, /install tells Windows to bind it to matching unknown devices
   $r = cmd /c "pnputil /add-driver `"$infPath`" /install 2>&1" 2>$null | Out-String
   
   if ($r -match 'Failed') {
@@ -244,9 +243,17 @@ function InstallFastbootDriver {
   } else {
     Ok 'Google Fastboot Driver successfully staged in Windows.'
   }
-}
 
-function CheckImei {
+  # --- NEW: Manual instructions fallback ---
+  Write-Host ''
+  Warn 'To make sure the device recognized in fastboot, you must manually apply the driver:'
+  Write-Host '   1. Open Windows Device Manager (Right-click Start Button -> Device Manager)' -ForegroundColor Yellow
+  Write-Host '   2. Find the device with a yellow (!) mark (usually under Other Devices -> Android or Zinwa)' -ForegroundColor Yellow
+  Write-Host '   3. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
+  Write-Host '   4. Select "Android Device" -> "Android Bootloader Interface" -> Click Yes to confirm' -ForegroundColor Yellow
+  Write-Host ''
+  Pause
+}function CheckImei {
   Step 'IMEI check'
   $connected = $false
   do {

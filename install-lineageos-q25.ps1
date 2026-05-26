@@ -11,30 +11,25 @@ $ErrorActionPreference = 'Stop'
 $HELP_FLAGS = @('-?','-help','--help','/?')
 
 function ShowHelp {
-  Write-Host @'
+    Write-Host -ForegroundColor Green @'
 Usage: .\install-lineageos-q25.ps1 [options]
 
 Automated LineageOS 23.2 installer for Zinwa Q25 Pro.
+By default, running the script with no arguments will launch the full interactive guide.
 
 Options:
-  -help, --help, -?, /?    Show this help
+  -help, --help, -?, /?    Show this help menu
 
-Steps (all interactive / guided):
-  1. Pre-checks             Admin rights, ADB/fastboot
-  2. Bootloader unlock      Guided unlock via fastboot
-  3. File downloads         LineageOS API + optional manual fallback
-  4. Google Apps            Optional MindTheGapps download
-  5. Flash partitions       boot, dtbo, vbmeta, vendor_boot (recovery)
-  6. Sideload ROM           Factory reset, sideload LineageOS + GApps
-  7. Post-install           Install APKs, push wallpapers via ADB
-
-Post-install folders (place next to script):
-  apks/       .apk files installed after first boot
-  wallpapers/ .jpg/.png/.webp pushed to /sdcard/Pictures/Wallpapers
+Quick-Run Flags (Skip the full interactive guide):
+  -bootloader   Check current bootloader unlock status
+  -imei         Run the IMEI check utility
+  -postinstall  Run the post-install app (APK) and wallpaper pusher
+  -remediate    Run the IMEI remediation tool
+  -unlock       Launch the bootloader unlock sequence
 
 Run as Administrator for best results.
 '@
-  exit 0
+    exit 0
 }
 
 if ($args | Where-Object { $_ -in $HELP_FLAGS }) { ShowHelp }
@@ -113,6 +108,47 @@ function HasCmd {
   return [bool](Get-Command $C -ErrorAction SilentlyContinue)
 }
 
+function DownloadFile {
+    param(
+        [Parameter(Mandatory=$true)] [string]$Url,
+        [Parameter(Mandatory=$true)] [string]$Dest,
+        [Parameter(Mandatory=$true)] [string]$Name
+    )
+    
+    Info "Downloading $Name..."
+    try {
+        # -# progress bar, -L follow redirects, -C - auto-resume
+        & curl.exe -# -L -C - -o "$Dest" "$Url"
+        
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 33) {
+            throw "curl.exe dropped connection (Exit Code: $LASTEXITCODE)"
+        }
+        
+        Ok "$Name downloaded and verified"
+        return $true
+    } catch {
+        Err "Failed to download $Name: $_"
+        return $false
+    }
+}
+
+function ShowWatermelon {
+    Clear-Host
+    Write-Host ""
+    Write-Host "       /\       " -ForegroundColor Red
+    Write-Host "      /  \      " -ForegroundColor Red
+    Write-Host "     / o  \     " -ForegroundColor Red
+    Write-Host "    /      \    " -ForegroundColor Red
+    Write-Host "   / o    o \   " -ForegroundColor Red
+    Write-Host "  /    o     \  " -ForegroundColor Red
+    Write-Host " / o      o   \ " -ForegroundColor Red
+    Write-Host "/______________\" -ForegroundColor Red
+    Write-Host "\______________/" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Happy Flashing! 🍉" -ForegroundColor Cyan
+    Write-Host ""
+}
+
 # ---- PRE-CHECKS ------------------------------------------------------------
 function CheckAdmin {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -135,8 +171,9 @@ function InstallTools {
 
   Info 'Downloading platform-tools from Google'
   $zip = Join-Path $env:TEMP 'platform-tools-latest-windows.zip'
-  try { Invoke-WebRequest -Uri $PLATFORM_TOOLS -OutFile $zip -UseBasicParsing }
-  catch { Err "Download failed: $_"; exit 1 }
+  if (-not (DownloadFile -Url $PLATFORM_TOOLS -Dest $zip -Name "platform-tools")) {
+        exit 1
+    }
 
   Info "Extracting to $ADB_DIR"
   if (Test-Path $ADB_DIR) { Remove-Item -Recurse -Force $ADB_DIR }
@@ -314,27 +351,28 @@ function GetFile {
 }
 
 function GetGApps {
-  if (-not (Confirm 'Install Google Apps (MindTheGapps)?')) { return $null }
+    if (-not (Confirm 'Install Google Apps (MindTheGapps)?')) { return $null }
 
-  Info 'Fetching latest MindTheGapps'
-  try {
-    $rel = Invoke-RestMethod -Uri $GAPPS_API -UseBasicParsing -ErrorAction Stop
-    $asset = $rel.assets | Where-Object { $_.name -like '*.zip' -and $_.name -notlike '*.sha256*' } | Select-Object -First 1
-    $gappsUrl  = $asset.browser_download_url
-    $gappsName = $asset.name
-  } catch {
-    Warn 'GitHub API unavailable, using default URL'
-    $gappsUrl  = $GAPPS_URL
-    $gappsName = 'MindTheGapps-16.0.0-arm64.zip'
-  }
+    Info 'Fetching latest MindTheGapps'
+    try {
+        $rel = Invoke-RestMethod -Uri $GAPPS_API -UseBasicParsing -ErrorAction Stop
+        $asset = $rel.assets | Where-Object { $_.name -like '*.zip' -and $_.name -notlike '*.sha256*' } | Select-Object -First 1
+        $gappsUrl  = $asset.browser_download_url
+        $gappsName = $asset.name
+    } catch {
+        Warn 'GitHub API unavailable, using default URL'
+        $gappsUrl  = $GAPPS_URL
+        $gappsName = 'MindTheGapps-16.0.0-arm64.zip'
+    }
 
-  $dest = Join-Path $WORK_DIR $gappsName
-  if (-not (Test-Path $dest)) {
-    Info 'Downloading GApps (approx 500 MB)'
-    try { Invoke-WebRequest -Uri $gappsUrl -OutFile $dest -UseBasicParsing; Ok 'GApps downloaded' }
-    catch { Err "Download failed: $_"; return GetFile $gappsName }
-  } else { Info 'GApps already downloaded' }
-  return $dest
+    $dest = Join-Path $WORK_DIR $gappsName
+
+    if (DownloadFile -Url $gappsUrl -Dest $dest -Name $gappsName) {
+        return $dest
+    } else {
+        # Fallback to manual entry if curl totally fails
+        return GetFile $gappsName
+    }
 }
 
 # ---- FLASHING --------------------------------------------------------------
@@ -523,57 +561,101 @@ function Sideload {
 
 # ---- POST-INSTALL ----------------------------------------------------------
 function PostInstall {
-  Step 'Post-install: installing apps and wallpapers'
-  Warn 'Make sure USB Debugging is on'
+    Step 'Post-install: installing apps and wallpapers'
+
+    if (Confirm 'Download default APKs and wallpapers from GitHub?') {
+        $repo = Read-Host "   Enter GitHub repo [gc04-ai/q25-collection]"
+        if (-not $repo) { $repo = 'gc04-ai/q25-collection' }
+        
+        # Ensure target folders exist
+        if (-not (Test-Path $APK_FOLDER)) { New-Item -ItemType Directory -Path $APK_FOLDER -Force | Out-Null }
+        if (-not (Test-Path $WALLPAPER_DIR)) { New-Item -ItemType Directory -Path $WALLPAPER_DIR -Force | Out-Null }
+
+        $apiUrl = "https://api.github.com/repos/$repo/contents"
+        $targets = @(
+            @{ GitPath='apks'; Local=$APK_FOLDER },
+            @{ GitPath='wallpapers'; Local=$WALLPAPER_DIR }
+        )
+        
+        foreach ($dir in $targets) {
+            Info "Checking GitHub for $($dir.GitPath)..."
+            try {
+                $items = Invoke-RestMethod -Uri "$apiUrl/$($dir.GitPath)" -UseBasicParsing -ErrorAction Stop
+                
+                foreach ($item in $items | Where-Object { $_.type -eq 'file' }) {
+                    $dest = Join-Path $dir.Local $item.name
+                    # Let the helper handle auto-resuming and file-skipping
+                    DownloadFile -Url $item.download_url -Dest $dest -Name $item.name | Out-Null
+                }
+            } catch {
+                Warn "  Failed to read $($dir.GitPath) from $repo. (Check repo name or folder structure)"
+            }
+        }
+    }
+
+    Warn 'Make sure USB Debugging is on'
     Write-Host ''
     Write-Host '   To enable USB debugging:' -ForegroundColor Yellow
     Write-Host '     1. Settings - About phone - tap Build Number 7 times' -ForegroundColor Yellow
     Write-Host '     2. Settings - System - Developer options - USB debugging - ON' -ForegroundColor Yellow
     Write-Host '     3. Connect USB cable, check box, accept the RSA fingerprint prompt on the phone' -ForegroundColor Yellow
-  Pause
+    Pause
 
-  if (-not (WaitDevice adb 'Android after first boot')) {
-    Warn 'Device not found. Run this step later manually.'
-    Info '  adb install MyApp.apk'
-    Info '  adb push wallpaper.jpg /sdcard/Pictures/'
-    return
-  }
+    if (-not (WaitDevice adb 'Android after first boot')) {
+        Warn 'Device not found. Run this step later manually.'
+        Info '  adb install MyApp.apk'
+        Info '  adb push wallpaper.jpg /sdcard/Pictures/'
+        return
+    }
 
-  # APKs
-  if (Test-Path $APK_FOLDER) {
-    $apks = Get-ChildItem $APK_FOLDER -Filter '*.apk' -ErrorAction SilentlyContinue
-    if ($apks) {
-      Info "Installing $($apks.Count) APK(s)"
-      foreach ($apk in $apks) {
-        Info "  Installing $($apk.Name)"
-        $r = cmd /c "adb install -r `"$($apk.FullName)`" 2>&1" 2>$null | Out-String
-        if ($r -match 'Success|success') { Ok "$($apk.Name) installed" } else { Warn "$($apk.Name) failed: $r" }
-      }
-    } else { Info 'No APKs found in ' + $APK_FOLDER }
-  } else {
-    New-Item -ItemType Directory -Path $APK_FOLDER -Force | Out-Null
-    Info "Created $APK_FOLDER - place APKs here"
-  }
+    # APKs
+    if (Test-Path $APK_FOLDER) {
+        $apks = Get-ChildItem $APK_FOLDER -Filter '*.apk' -ErrorAction SilentlyContinue
+        if ($apks) {
+            Info "Installing $($apks.Count) APK(s)"
+            foreach ($apk in $apks) {
+                Info "  Installing $($apk.Name)"
+                $r = cmd /c "adb install -r `"$($apk.FullName)`" 2>&1" 2>$null | Out-String
+                if ($r -match 'Success|success') {
+                    Ok "$($apk.Name) installed"
+                } else {
+                    Warn "$($apk.Name) failed: $r"
+                }
+            }
+        } else {
+            Info 'No APKs found in ' + $APK_FOLDER
+        }
+    } else {
+        New-Item -ItemType Directory -Path $APK_FOLDER -Force | Out-Null
+        Info "Created $APK_FOLDER - place APKs here"
+    }
 
-  # Wallpapers
-  if (Test-Path $WALLPAPER_DIR) {
-    $images = Get-ChildItem (Join-Path $WALLPAPER_DIR '*') -Include '*.jpg','*.jpeg','*.png','*.webp' -ErrorAction SilentlyContinue
-    if ($images) {
-      Info "Pushing $($images.Count) wallpaper(s)"
-      $remoteDir = '/sdcard/Pictures/Wallpapers'
-      cmd /c "adb shell mkdir -p $remoteDir 2>&1" 2>$null | Out-Null
-      foreach ($img in $images) {
-        Info "  Pushing $($img.Name)"
-        $r = cmd /c "adb push `"$($img.FullName)`" $remoteDir/ 2>&1" 2>$null | Out-String
-        if ($r -match 'pushed|success') { Ok "$($img.Name) pushed" } else { Warn "$($img.Name) failed: $r" }
-      }
-    } else { Info 'No images found in ' + $WALLPAPER_DIR }
-  } else {
-    New-Item -ItemType Directory -Path $WALLPAPER_DIR -Force | Out-Null
-    Info "Created $WALLPAPER_DIR - place wallpapers here"
-  }
+    # Wallpapers
+    if (Test-Path $WALLPAPER_DIR) {
+        $images = Get-ChildItem (Join-Path $WALLPAPER_DIR '*') -Include '*.jpg','*.jpeg','*.png','*.webp' -ErrorAction SilentlyContinue
+        if ($images) {
+            Info "Pushing $($images.Count) wallpaper(s)"
+            $remoteDir = '/sdcard/Pictures/Wallpapers'
+            cmd /c "adb shell mkdir -p $remoteDir 2>&1" 2>$null | Out-Null
+            
+            foreach ($img in $images) {
+                Info "  Pushing $($img.Name)"
+                $r = cmd /c "adb push `"$($img.FullName)`" $remoteDir/ 2>&1" 2>$null | Out-String
+                if ($r -match 'pushed|success') {
+                    Ok "$($img.Name) pushed"
+                } else {
+                    Warn "$($img.Name) failed: $r"
+                }
+            }
+        } else {
+            Info 'No images found in ' + $WALLPAPER_DIR
+        }
+    } else {
+        New-Item -ItemType Directory -Path $WALLPAPER_DIR -Force | Out-Null
+        Info "Created $WALLPAPER_DIR - place wallpapers here"
+    }
 
-  Ok 'Post-install complete'
+    Ok 'Post-install complete'
 }
 
 # ---- MAIN ------------------------------------------------------------------
@@ -634,15 +716,16 @@ function Main {
     $files   = @('boot.img','dtbo.img','vbmeta.img','vendor_boot.img')
     $romFile = $latestBuild.files[0].filename
     $files  += $romFile
-
-    foreach ($f in $files) {
-      $dest = Join-Path $WORK_DIR $f
-      if (Test-Path $dest) { Info "$f already downloaded"; continue }
-      $url = "$baseUrl/$f"
-      Info "Downloading $f"
-      try { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; Ok "$f downloaded" }
-      catch { Warn "Mirror failed for $f"; GetFile $f | Out-Null }
-    }
+    
+      foreach ($f in $files) {
+            $dest = Join-Path $WORK_DIR $f
+            $url = "$baseUrl/$f"
+            
+            if (-not (DownloadFile -Url $url -Dest $dest -Name $f)) {
+                Warn "Mirror failed for $f; Please provide it manually."
+                GetFile $f | Out-Null
+            }
+      }
     $bootImg    = Join-Path $WORK_DIR 'boot.img'
     $dtboImg    = Join-Path $WORK_DIR 'dtbo.img'
     $vbmetaImg  = Join-Path $WORK_DIR 'vbmeta.img'
@@ -688,6 +771,7 @@ if ($quickCmd) {
     'bootloader'  { CheckBootloader | Out-Null }
     'unlock'      { UnlockBootloader }
     'postinstall' { PostInstall }
+    'w'           { ShowWatermelon }
   }
   exit
 }

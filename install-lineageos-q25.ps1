@@ -354,6 +354,7 @@ function WaitDevice {
     Write-Host '   1. Open Device Manager and find the yellow (!) device.' -ForegroundColor Yellow
     Write-Host '   2. Right-click -> Update Driver -> Browse my computer -> Let me pick from a list' -ForegroundColor Yellow
     Write-Host '   3. Select "Android Device" -> "Android Bootloader Interface"' -ForegroundColor Yellow
+    Write-Host '   4. Press enter back in this window if still hung"' -ForegroundColor Yellow
     Write-Host ' '
   }
 

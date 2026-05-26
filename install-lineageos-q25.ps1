@@ -768,7 +768,7 @@ function Main {
 }
 
 # quick-run: .\install-lineageos-q25.ps1 -postinstall  (or -imei, -remediate, -bootloader, -unlock)
-$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','postinstall','w') } | Select-Object -First 1
+$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','postinstall','w','b','ic','pi','if','u') } | Select-Object -First 1
 if ($quickCmd) {
   switch ($quickCmd) {
     'imei'        { CheckImei }
@@ -776,6 +776,11 @@ if ($quickCmd) {
     'bootloader'  { CheckBootloader | Out-Null }
     'unlock'      { UnlockBootloader }
     'postinstall' { PostInstall }
+    'ic'          { CheckImei }
+    'if'          { RemediateImei }
+    'b'           { CheckBootloader | Out-Null }
+    'u'           { UnlockBootloader }
+    'pi'          { PostInstall }
     'w'           { ShowWatermelon }
   }
   exit

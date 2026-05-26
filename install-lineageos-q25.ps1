@@ -157,14 +157,16 @@ function InstallTools {
     try { netsh advfirewall firewall add rule name='ADB' dir=in action=allow program="$ADB_DIR\adb.exe" enable=yes | Out-Null } catch {}
   }
 
- # verification check
- if (Test-Path "$ADB_DIR\adb.exe") {
-   Ok 'ADB installed and verified'
-} elseif (HasCmd adb) { 
+  # verification check
+  if (Test-Path "$ADB_DIR\adb.exe") {
+    & "$ADB_DIR\adb.exe" start-server 2>$null
+    Start-Sleep -Seconds 5
+    Ok 'ADB installed and verified'
+  } elseif (HasCmd adb) { 
   Ok 'ADB installed' 
   } else { 
-    Err "ADB install failed. File not found at $ADB_DIR\adb.exe"; exit 1 }
-}
+    Err "ADB install failed. File not found at $ADB_DIR\adb.exe"; exit 1
+  }
 
 function CheckImei {
   Step 'IMEI check'

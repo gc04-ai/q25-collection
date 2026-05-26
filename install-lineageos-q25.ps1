@@ -59,8 +59,8 @@ foreach ($d in @($WORK_DIR, $APK_FOLDER, $WALLPAPER_DIR)) {
 function Banner {
   Clear-Host
   Write-Host ('=' * 55) -ForegroundColor Cyan
-  Write-Host "  $SCRIPT_NAME" -ForegroundColor Cyan
-  Write-Host "  Device: $OEM $DEVICE" -ForegroundColor Cyan
+  Write-Host "      $SCRIPT_NAME" -ForegroundColor Cyan
+  Write-Host "      Device: $OEM $DEVICE" -ForegroundColor Cyan
   Write-Host ('=' * 55) -ForegroundColor Cyan
   ShowWatermelon
   Write-Host -ForegroundColor Cyan @'
@@ -75,11 +75,14 @@ Steps (all interactive / guided):
   6. Sideload ROM           Factory reset, sideload LineageOS + GApps
   7. Post-install           Install APKs, push wallpapers via ADB
 '@
+  Write-Host ""
   Ok "Work dir:     $WORK_DIR"    
   Ok "APKs:         $APK_FOLDER"   
   Ok "Wallpapers:   $WALLPAPER_DIR" 
+  Write-Host ""
   Info "[optional] You can stage files in Work Dir, APKs, and Wallpaper."
   Info "[default] You can let the script download everything for you."
+  Write-Host ""
   Warn 'Run as Administrator for best results'
   Pause
 }

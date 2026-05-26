@@ -872,7 +872,7 @@ function Main {
   # Banner
   Write-Host ""
   ShowWatermelon
-  Write-Host "  All done! Enjoy LineageOS on your $OEM $DEVICE." -ForegroundColor Green
+  Write-Host "                        All done! Enjoy LineageOS on your $OEM $DEVICE." -ForegroundColor Green
   Write-Host ""
   
 }

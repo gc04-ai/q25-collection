@@ -167,6 +167,7 @@ function InstallTools {
   } else { 
     Err "ADB install failed. File not found at $ADB_DIR\adb.exe"; exit 1
   }
+}
 
 function CheckImei {
   Step 'IMEI check'

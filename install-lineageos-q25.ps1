@@ -140,7 +140,7 @@ function InstallTools {
 
   Info "Extracting to $ADB_DIR"
   if (Test-Path $ADB_DIR) { Remove-Item -Recurse -Force $ADB_DIR }
-  Expand-Archive -Path $zip -DestinationPath $ADB_DIR -Force
+  Expand-Archive -Path $zip -DestinationPath $env:USERPROFILE -Force
   Remove-Item $zip -Force
 
   $userPath = [Environment]::GetEnvironmentVariable('Path','User')

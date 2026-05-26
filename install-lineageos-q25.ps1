@@ -152,6 +152,18 @@ function ShowWatermelon {
     Write-Host ""
 }
 
+function CheckForUpdates {
+  Step 'Checking for LineageOS updates'
+  $latest = GetBuilds
+  if ($latest) {
+    Ok "Latest build available: $($latest.version)"
+    Info "Build date: $($latest.datetime)"
+  } else {
+    Warn 'Could not retrieve build information from LineageOS API.'
+  }
+  exit 0
+}
+
 # ---- PRE-CHECKS ------------------------------------------------------------
 function CheckAdmin {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -862,7 +874,7 @@ function Main {
 }
 
 # quick-run: .\install-lineageos-q25.ps1 -postinstall  (or -imei, -remediate, -bootloader, -unlock)
-$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','postinstall','w','b','ic','pi','if','u') } | Select-Object -First 1
+$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','postinstall','check','w','b','ic','pi','if','u','c') } | Select-Object -First 1
 if ($quickCmd) {
   switch ($quickCmd) {
     'imei'        { CheckImei }
@@ -876,6 +888,8 @@ if ($quickCmd) {
     'u'           { UnlockBootloader }
     'pi'          { PostInstall }
     'w'           { ShowWatermelon }
+    'check'       { CheckForUpdates }
+    'c'           { CheckForUpdates }
   }
   exit
 }

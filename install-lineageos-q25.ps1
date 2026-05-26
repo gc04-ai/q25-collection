@@ -139,9 +139,8 @@ function InstallTools {
   catch { Err "Download failed: $_"; exit 1 }
 
   Info "Extracting to $ADB_DIR"
-  $parent = Split-Path $ADB_DIR
-  if (Test-Path $parent) { Remove-Item -Recurse -Force $parent }
-  Expand-Archive -Path $zip -DestinationPath $parent -Force
+  if (Test-Path $ADB_DIR) { Remove-Item -Recurse -Force $ADB_DIR }
+  Expand-Archive -Path $zip -DestinationPath $ADB_DIR -Force
   Remove-Item $zip -Force
 
   $userPath = [Environment]::GetEnvironmentVariable('Path','User')

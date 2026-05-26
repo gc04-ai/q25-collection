@@ -21,11 +21,11 @@ Options:
   -help, --help, -?, /?    Show this help menu
 
 Quick-Run Flags (Skip the full interactive guide):
-  -bootloader   Check current bootloader unlock status
-  -imei         Run the IMEI check utility
-  -postinstall  Run the post-install app (APK) and wallpaper pusher
-  -remediate    Run the IMEI remediation tool
-  -unlock       Launch the bootloader unlock sequence
+  -bootloader | -b    Check current bootloader unlock status
+  -imei | -ic         Run the IMEI check utility
+  -postinstall | -pi  Run the post-install app (APK) and wallpaper pusher
+  -remediate | -if    Run the IMEI remediation tool
+  -unlock | -u        Launch the bootloader unlock sequence
 
 Run as Administrator for best results.
 '@
@@ -54,10 +54,6 @@ $WALLPAPER_DIR   = Join-Path $PWD.Path 'wallpapers'
 foreach ($d in @($WORK_DIR, $APK_FOLDER, $WALLPAPER_DIR)) {
   New-Item -ItemType Directory -Path $d -Force | Out-Null
 }
-Write-Host "Work dir:     $WORK_DIR"     -ForegroundColor Cyan
-Write-Host "APKs:         $APK_FOLDER"   -ForegroundColor Cyan
-Write-Host "Wallpapers:   $WALLPAPER_DIR" -ForegroundColor Cyan
-Write-Host ""
 
 # ---- HELPERS ---------------------------------------------------------------
 function Banner {
@@ -66,7 +62,11 @@ function Banner {
   Write-Host "  $SCRIPT_NAME" -ForegroundColor Cyan
   Write-Host "  Device: $OEM $DEVICE" -ForegroundColor Cyan
   Write-Host ('=' * 55) -ForegroundColor Cyan
-  Write-Host ''
+  Write-Host ""
+  Ok "Work dir:     $WORK_DIR"    
+  Ok "APKs:         $APK_FOLDER"   
+  Ok "Wallpapers:   $WALLPAPER_DIR" 
+  Write-Host ""
   Write-Host -ForegroundColor Green @'
 Automated LineageOS 23.2 installer for Zinwa Q25 Pro.
 
@@ -78,13 +78,11 @@ Steps (all interactive / guided):
   5. Flash partitions       boot, dtbo, vbmeta, vendor_boot (recovery)
   6. Sideload ROM           Factory reset, sideload LineageOS + GApps
   7. Post-install           Install APKs, push wallpapers via ADB
-
-Post-install folders (place next to script):
-  apks/       .apk files installed after first boot
-  wallpapers/ .jpg/.png/.webp pushed to /sdcard/Pictures/Wallpapers
-
-Run as Administrator for best results.
-'@ 
+'@
+  Info "[optional] You can stage files in Work Dir, APKs, and Wallpaper."
+  Info "[default] You can let the script download everything for you."
+  Warn 'Run as Administrator for best results.'
+  ShowWatermelon
   Pause
 }
 
@@ -140,7 +138,6 @@ function DownloadFile {
 }
 
 function ShowWatermelon {
-    Clear-Host
     Write-Host ""
     Write-Host "       /\       " -ForegroundColor Red
     Write-Host "      /  \      " -ForegroundColor Red
@@ -671,7 +668,6 @@ function PostInstall {
 # ---- MAIN ------------------------------------------------------------------
 function Main {
   Banner
-
   CheckAdmin
   InstallTools
   CheckImei

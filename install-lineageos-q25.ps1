@@ -152,7 +152,7 @@ function ShowWatermelon {
     Write-Host "/______________\" -ForegroundColor Red
     Write-Host "\______________/" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Happy Flashing! 🍉" -ForegroundColor Cyan
+    Write-Host "  Happy Flashing!" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -183,6 +183,9 @@ function InstallTools {
     }
 
   Info "Extracting to $ADB_DIR"
+  if (Test-Path "$ADB_DIR\adb.exe") {
+    Start-Process -FilePath "$ADB_DIR\adb.exe" -ArgumentList "kill-server" -WindowStyle Hidden -Wait
+    Ok 'ADB killed, installing again.' }
   if (Test-Path $ADB_DIR) { Remove-Item -Recurse -Force $ADB_DIR }
   Expand-Archive -Path $zip -DestinationPath $env:USERPROFILE -Force
   Remove-Item $zip -Force

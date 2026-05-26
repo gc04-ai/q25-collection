@@ -213,6 +213,39 @@ function InstallTools {
   }
 }
 
+function InstallFastbootDriver {
+  Step 'Checking Fastboot Drivers'
+  
+  $driverZip = Join-Path $env:TEMP 'google_usb_driver.zip'
+  $driverDir = Join-Path $env:TEMP 'google_usb_driver_extract'
+  $infPath   = Join-Path $driverDir 'usb_driver\android_winusb.inf'
+
+  if (-not (Test-Path $infPath)) {
+    Info 'Downloading official Google USB Driver...'
+    $driverUrl = 'https://dl-ssl.google.com/android/repository/latest_usb_driver_windows.zip'
+    
+    if (-not (DownloadFile -Url $driverUrl -Dest $driverZip -Name 'Google USB Driver')) {
+      Warn 'Could not download USB driver. Skipping.'
+      return
+    }
+    
+    Info "Extracting driver..."
+    if (Test-Path $driverDir) { Remove-Item -Recurse -Force $driverDir }
+    Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
+    Remove-Item $driverZip -Force
+  }
+
+  Info 'Installing driver to Windows (pnputil)...'
+  # /add-driver stages it, /install tells Windows to bind it to matching unknown devices
+  $r = cmd /c "pnputil /add-driver `"$infPath`" /install 2>&1" 2>$null | Out-String
+  
+  if ($r -match 'Failed') {
+    Warn 'Driver installation reported a failure.'
+  } else {
+    Ok 'Google Fastboot Driver successfully staged in Windows.'
+  }
+}
+
 function CheckImei {
   Step 'IMEI check'
   $connected = $false
@@ -669,6 +702,7 @@ function Main {
   Banner
   CheckAdmin
   InstallTools
+  InstallFastbootDriver
   CheckImei
   if (Confirm 'Run IMEI remediation?') { RemediateImei }
 

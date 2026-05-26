@@ -11,17 +11,23 @@ Automated PowerShell script to install LineageOS 23.2 on the Zinwa Q25 Pro, incl
 
 ## Quick Start
 
+### Open Powershell as Admin
+```
+1. Press Windows key
+2. Type powershell
+3. Click Run as Administrator
+```
+### Change to your home directory
+```
+cd ~
+```
+### Download the script
 ```
 iwr "https://raw.githubusercontent.com/gc04-ai/q25-collection/refs/heads/main/install-lineageos-q25.ps1" -o "install-lineageos-q25.ps1"
 ```
+### Run the script
 ```
 powershell -ExecutionPolicy Bypass -File install-lineageos-q25.ps1
-```
-
-Run as **Administrator** for best results.
-
-```
-.\install-lineageos-q25.ps1 -help
 ```
 
 ## What It Does
@@ -69,3 +75,8 @@ After first boot, the script installs all `.apk` files and pushes images to `/sd
 - GApps signature verification failure is normal -- select "Yes" to continue
 - All downloaded files are cached in `%USERPROFILE%\lineageos-install` for reuse
 - The post-install step (APKs/wallpapers) can be re-run later by calling `PostInstall` manually after ADB is connected
+
+## See help text for more usage
+```
+.\install-lineageos-q25.ps1 -help
+```

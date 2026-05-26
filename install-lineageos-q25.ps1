@@ -582,20 +582,20 @@ function Sideload {
   Step 'Sideloading LineageOS'
 
   Write-Host ''
-  Info '1. On your phone in recovery, select: Factory Reset - Format data/factory reset'
-  Info '2. Confirm the format, then return to main menu'
-  Info '3. Unplug and re-plug the USB cable (this wakes up ADB on some devices)'
-  Info '4. Select: Apply update - Apply from ADB'
-  Info '5. The device will show "Waiting for ADB sideload..."'
+  Write-Host '   1. On your phone in recovery, select: Factory Reset - Format data/factory reset' -ForegroundColor Yellow
+  Write-Host '   2. Confirm the format, then return to main menu' -ForegroundColor Yellow
+  Write-Host '   3. Unplug and re-plug the USB cable (this wakes up ADB on some devices)' -ForegroundColor Yellow
+  Write-Host '   4. Select: Apply update - Apply from ADB' -ForegroundColor Yellow
+  Write-Host '   5. The device will show "Waiting for ADB sideload..."' -ForegroundColor Yellow
   Write-Host ''
   Pause
 
   if (-not $Rom -or -not (Test-Path $Rom)) { Err 'LineageOS zip not found'; exit 1 }
 
-  Info 'Sideloading ROM (10+ minutes; may stall at 47% -- this is normal, do not unplug or restart)'
-  Info 'If you see ERROR: recovery: Ppen failed: /metadata/ota: No such file or directory on phone, ignore it and keep waiting'
+  Warn 'Sideloading ROM (10+ minutes; may stall at 47% -- this is normal, do not unplug or restart)'
+  Warn 'If you see ERROR: recovery: Open failed: /metadata/ota: No such file or directory on phone, ignore it and keep waiting'
   $r = cmd /c "adb -d sideload `"$Rom`" 2>&1" 2>$null | Out-String
-  if ($r -notmatch 'Success|failed to read command') {
+  if ($r -notmatch 'Success|failed to read command|Total xfer') {
     Err "Sideload failed: $r"
     if (-not (Confirm 'Retry?')) { exit 1 }
     return Sideload $Rom $GApps
@@ -609,7 +609,7 @@ function Sideload {
 
     Info 'Sideloading GApps'
     $r = cmd /c "adb -d sideload `"$GApps`" 2>&1" 2>$null | Out-String
-    if ($r -notmatch 'Success|failed to read command|Signature') {
+    if ($r -notmatch 'Success|failed to read command|Total xfer') {
       Err "GApps sideload failed: $r"
     } else { Ok 'GApps installed' }
     Info 'If signature verification fails, select Yes to continue (normal for GApps)'

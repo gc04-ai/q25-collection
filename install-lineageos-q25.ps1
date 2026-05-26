@@ -143,18 +143,27 @@ function InstallTools {
   Expand-Archive -Path $zip -DestinationPath $env:USERPROFILE -Force
   Remove-Item $zip -Force
 
+  # set path for future runs
   $userPath = [Environment]::GetEnvironmentVariable('Path','User')
   if ($userPath -notlike "*$ADB_DIR*") {
     $newPath = "$userPath;$ADB_DIR"
     [Environment]::SetEnvironmentVariable('Path',$newPath,'User')
   }
-  $env:Path = "$env:Path;$ADB_DIR"
+
+  # make current session see ADB 
+  $env:Path = "$ADB_DIR;$env:Path"
 
   if (HasCmd netsh) {
     try { netsh advfirewall firewall add rule name='ADB' dir=in action=allow program="$ADB_DIR\adb.exe" enable=yes | Out-Null } catch {}
   }
 
-  if (HasCmd adb) { Ok 'ADB installed' } else { Err 'ADB install failed'; exit 1 }
+ # verification check
+ if (Test-Path "$ADB_DIR\adb.exe") {
+   Ok 'ADB installed and verified'
+} elseif (HasCmd adb) { 
+  Ok 'ADB installed' 
+  } else { 
+    Err "ADB install failed. File not found at $ADB_DIR\adb.exe"; exit 1 }
 }
 
 function CheckImei {

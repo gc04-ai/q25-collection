@@ -159,7 +159,8 @@ function InstallTools {
 
   # verification check
   if (Test-Path "$ADB_DIR\adb.exe") {
-    & "$ADB_DIR\adb.exe" start-server *>$null
+    Start-Process -FilePath "$ADB_DIR\adb.exe" -ArgumentList "kill-server" -WindowStyle Hidden -Wait
+    Start-Process -FilePath "$ADB_DIR\adb.exe" -ArgumentList "start-server" -WindowStyle Hidden
     Start-Sleep -Seconds 5
     Ok 'ADB installed and verified'
   } elseif (HasCmd adb) { 

@@ -116,9 +116,13 @@ function DownloadFile {
     )
     
     Info "Downloading $Name..."
+    
+    # Temporarily bypass strict error rules so curl's progress bar doesn't kill the script
+    $oldErr = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    
     try {
-        # -# progress bar, -L follow redirects, -C - auto-resume
-        & curl.exe -# -L -C - -o "$Dest" "$Url"
+        & curl.exe --progress-bar -L -C - -o "$Dest" "$Url"
         
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 33) {
             throw "curl.exe dropped connection (Exit Code: $LASTEXITCODE)"
@@ -127,8 +131,11 @@ function DownloadFile {
         Ok "$Name downloaded and verified"
         return $true
     } catch {
-        Err "Failed to download $Name: $_"
+        Err "Failed to download $($Name): $_"
         return $false
+    } finally {
+        # Restore strict error handling for the rest of the script
+        $ErrorActionPreference = $oldErr
     }
 }
 

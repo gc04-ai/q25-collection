@@ -23,7 +23,7 @@ cd ~
 ```
 ### Download the script
 ```
-iwr "https://raw.githubusercontent.com/gc04-ai/q25-collection/refs/heads/main/install-lineageos-q25.ps1" -o "install-lineageos-q25.ps1"
+iwr "https://raw.githubusercontent.com/gc04-ai/q25-lineage-installer/refs/heads/main/install-lineageos-q25.ps1" -o "install-lineageos-q25.ps1"
 ```
 ### Run the script
 ```

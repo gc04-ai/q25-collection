@@ -72,7 +72,7 @@ function Banner {
   Write-Host "  Device: $OEM $DEVICE" -ForegroundColor Cyan
   Write-Host ('=' * 55) -ForegroundColor Cyan
   Write-Host ''
-  Write-Host @'
+  Write-Host -ForegroundColor Green @'
 Automated LineageOS 23.2 installer for Zinwa Q25 Pro.
 
 Steps (all interactive / guided):
@@ -89,7 +89,7 @@ Post-install folders (place next to script):
   wallpapers/ .jpg/.png/.webp pushed to /sdcard/Pictures/Wallpapers
 
 Run as Administrator for best results.
-'@ -ForegroundColor Green
+'@ 
   Pause
 }
 

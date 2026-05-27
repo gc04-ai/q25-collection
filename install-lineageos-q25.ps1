@@ -679,11 +679,13 @@ function Sideload {
   Ok 'LineageOS installed'
 
   if ($GApps -and (Test-Path $GApps)) {
-    Write-Host '   When prompted on device: choose Yes to reboot to recovery for add-ons' -ForegroundColor Yellow
-    Write-Host '   After reboot: Apply update - Apply from ADB again' -ForegroundColor Yellow
+    Write-Host '   1. When prompted on device: choose Yes to reboot to recovery for add-ons' -ForegroundColor Yellow
+    Write-Host '   2. Select: Apply update - Apply from ADB' -ForegroundColor Yellow
+    Write-Host '   3. The device will show "Now send the package you want to apply..."' -ForegroundColor Yellow
     Pause
 
     Info 'Sideloading GApps...'
+    Warn 'If signature verification fails, select Yes to continue [this is expected for GApps]'
     $gappsJob = Start-Process -FilePath "adb" -ArgumentList "-d sideload `"$GApps`"" -WindowStyle Hidden -PassThru
 
     Start-Sleep -Seconds 5
@@ -702,7 +704,6 @@ function Sideload {
     }
     
     Ok 'GApps installed'
-    Info 'If signature verification fails, select Yes to continue (normal for GApps)'
   }
 
   Write-Host '   If you are NOT installing GApps, click click Reboot system now' -ForegroundColor Yellow

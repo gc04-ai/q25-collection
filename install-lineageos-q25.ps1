@@ -26,6 +26,9 @@ Quick-Run Flags (Skip the full interactive guide):
   -postinstall | -pi  Run the post-install app (APK) and wallpaper pusher
   -remediate | -if    Run the IMEI remediation tool
   -unlock | -u        Launch the bootloader unlock sequence
+  -relock | -rl       Re-lock the bootloader (stock restore)
+  -stock              Flash stock firmware via fastboot
+  -download           Download all firmware files and exit
 
 Run as Administrator for best results.
 '@
@@ -49,9 +52,11 @@ $SF_HASHES       = @{
 $WORK_DIR        = Join-Path $PWD.Path 'lineageos-install'
 $APK_FOLDER      = Join-Path $PWD.Path 'apks'
 $WALLPAPER_DIR   = Join-Path $PWD.Path 'wallpapers'
+$STOCK_DIR       = Join-Path $PWD.Path 'stock'
+$STOCK_ZIP_ID    = '1bqwBa9aDyaMXZf02JS8qmxgMwQ9uaqUK'
 
 # create working directories up front so user knows where to place files
-foreach ($d in @($WORK_DIR, $APK_FOLDER, $WALLPAPER_DIR)) {
+foreach ($d in @($WORK_DIR, $APK_FOLDER, $WALLPAPER_DIR, $STOCK_DIR)) {
   New-Item -ItemType Directory -Path $d -Force | Out-Null
 }
 
@@ -74,6 +79,7 @@ Steps (all interactive / guided):
   5. Flash partitions       boot, dtbo, vbmeta, vendor_boot (recovery)
   6. Sideload ROM           Factory reset, sideload LineageOS + GApps
   7. Post-install           Install APKs, push wallpapers via ADB
+  8. Flash Stock            Flash back to stock OS if needed
 '@
   Write-Host ""
   Ok "Work dir:     $WORK_DIR"    
@@ -125,6 +131,12 @@ function DownloadFile {
         
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 33) {
             throw "curl.exe dropped connection (Exit Code: $LASTEXITCODE)"
+        }
+        
+        # Sanity check: reject zero-byte files
+        if ((Get-Item $Dest).Length -eq 0) {
+            Remove-Item $Dest -Force -ErrorAction SilentlyContinue
+            throw "Downloaded file is empty"
         }
         
         Ok "$Name downloaded and verified"
@@ -462,13 +474,18 @@ function UnlockBootloader {
   Write-Host '  - You are doing this at your own risk' -ForegroundColor Magenta
   if (-not (Confirm 'Continue with bootloader unlock?')) { Warn 'Skipping'; return }
 
-  Write-Host '  WARNING: Last chance to back out...' -ForegroundColor Magenta
-  Write-Host ' - Be ready to press VOLUME UP on the phone to confirm when prompted.' -ForegroundColor Magenta
+
+  Write-Host '  Unlock OEM Bootloader in phone settings first:' -ForegroundColor Yellow
+  Write-Host '   - Settings - System - Developer Options' -ForegroundColor Yellow
+  Write-Host '   - OEM Unlocking: ON and click Enable on the pop up' -ForegroundColor Yellow
+  Write-Host ''
+  Warn 'WARNING: Last chance to back out...'
   Pause
 
   if (-not (WaitDevice adb 'USB Debugging')) { Err 'Device not detected. Check USB cable and RSA prompt.'; exit 1 }
 
   Info 'Rebooting to bootloader'
+  Warn 'Be ready to press VOLUME UP on the phone to confirm when prompted!'
   adb -d reboot bootloader
   Start-Sleep -Seconds 20
 
@@ -488,9 +505,32 @@ function UnlockBootloader {
     Info '1. Enable Developer Options: Settings - About - tap Build Number 7x'
     Info '2. Enable OEM Unlock + USB Debugging in Settings - System - Developer Options'
     Info '3. Connect phone via USB, check box and accept the RSA key fingerprint prompt on the phone'
-  } else {
-    Warn 'You may need to manually reboot'
-  }
+      } else {
+        Warn 'You may need to manually reboot'
+      }
+}
+
+function RelockBootloader {
+  Step 'Re-lock bootloader'
+  Write-Host '  WARNING: Re-locking will:' -ForegroundColor Magenta
+  Write-Host '  - Restore the bootloader to locked state' -ForegroundColor Magenta
+  Write-Host '  - Device will no longer show the warning on boot' -ForegroundColor Magenta
+  Write-Host '  - Only do this if you are on STOCK firmware' -ForegroundColor Magenta
+  if (-not (Confirm 'Continue with bootloader relock?')) { Warn 'Skipping'; return }
+
+  if (CheckDevice 'fastboot') { Info 'Already in fastboot' }
+  elseif (CheckDevice 'adb') { Info 'Rebooting to fastboot...'; adb -d reboot bootloader; Start-Sleep -Seconds 15 }
+  else { Info 'Connect device in fastboot or ADB, then press Enter'; Pause }
+  if (-not (WaitDevice fastboot 'fastboot mode')) { Err 'Device not in fastboot'; return }
+
+  Info 'Running: fastboot flashing lock'
+  Warn 'IMMEDIATELY press VOLUME UP on the phone to confirm (you have ~5 seconds!)'
+  fastboot flashing lock
+  Start-Sleep -Seconds 10
+
+  Info 'Rebooting...'
+  cmd /c 'fastboot reboot 2>&1' 2>$null | Out-Null
+  Ok 'Bootloader relocked. Device rebooting.'
 }
 
 function CheckBootloader {
@@ -769,7 +809,122 @@ function PostInstall {
     Ok 'Post-install complete'
 }
 
+# ---- STOCK FLASH (fastboot) -------------------------------------------------
+function DownloadStockFirmware {
+  Step 'Download stock firmware'
+  $zip = Join-Path $STOCK_DIR 'OS-permissions-0326-Q25-GMS.zip'
+  $id  = $STOCK_ZIP_ID
+  if (Test-Path $zip) { Info 'Already downloaded'; return $zip }
+
+  $dlUrl = "https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t"
+  if (DownloadFile -Url $dlUrl -Dest $zip -Name 'stock firmware (approx 2.7 GB)') {
+    if ((Get-Item $zip).Length -lt 1MB) { Err 'File too small'; return $null }
+    $size = [math]::Round((Get-Item $zip).Length / 1GB, 1)
+    Ok "Downloaded ($size GB)"
+    Info 'Extracting (this may take a few minutes)...'
+    $extractTimer = Get-Date
+    Expand-Archive -Path $zip -DestinationPath $STOCK_DIR -Force
+    $elapsed = [math]::Round(((Get-Date) - $extractTimer).TotalSeconds)
+    Ok "Extracted in ${elapsed}s"
+    return $zip
+  }
+  Write-Host "  Download manually: https://drive.google.com/file/d/$id/view" -ForegroundColor Yellow
+  return $null
+}
+
+function FlashStock {
+  Step 'Flash stock firmware (fastboot)'
+
+  # scatter may be in stock\ directly or in a subfolder (SP1A.210812.016RELEASE-KEYS)
+  $scatter = Get-ChildItem $STOCK_DIR -Recurse -Filter 'MT6789_Android_scatter.txt' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+  if (-not $scatter) {
+    if (Confirm 'Download stock firmware from Google Drive (approx 2.7 GB)?') { DownloadStockFirmware | Out-Null }
+    $scatter = Get-ChildItem $STOCK_DIR -Recurse -Filter 'MT6789_Android_scatter.txt' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+  }
+  if (-not $scatter) { Err 'Scatter file not found'; return }
+
+  # set stock dir to where the scatter lives so images resolve
+  $stockDir = Split-Path $scatter
+
+  # parse scatter: filename -> partition_name
+  $map = @{}; $part = ''; $file = ''
+  Get-Content $scatter | ForEach-Object {
+    if     ($_ -match 'partition_name:\s*(\S+)') { $part = $Matches[1] }
+    elseif ($_ -match 'file_name:\s*(\S+)') { $file = $Matches[1]; if ($file -ne 'NONE' -and $part -notlike 'preloader*') { $map[$file] = $part } }
+  }
+  if ($map.Count -eq 0) { Err 'No flashable partitions'; return }
+
+  Info "Found $($map.Count) partitions to flash (excluding preloader)"
+  foreach ($kv in $map.GetEnumerator() | Sort-Object Name) {
+    $img = Join-Path $stockDir $kv.Name
+    if (Test-Path $img) { Info "  $($kv.Name) -> $($kv.Value)  ($([math]::Round((Get-Item $img).Length/1MB,1)) MB)" }
+  }
+  Write-Host ''
+  Write-Host '  WARNING: This wipes LineageOS and restores stock firmware.' -ForegroundColor Magenta
+  Write-Host '  super.img is ~5.5 GB -- flashing takes 10-20 minutes. Do NOT unplug.' -ForegroundColor Yellow
+  if (-not (Confirm 'Flash stock firmware now?')) { Warn 'Skipping'; return }
+
+  if (CheckDevice 'fastboot') { Info 'Already in fastboot' }
+  elseif (CheckDevice 'adb') { Info 'Rebooting to fastboot...'; adb -d reboot bootloader; Start-Sleep -Seconds 15 }
+  else { Info 'Connect device in fastboot or ADB, then press Enter'; Pause }
+  if (-not (WaitDevice fastboot 'fastboot mode')) { Err 'Device not in fastboot'; return }
+
+  $ok = $true
+  foreach ($kv in $map.GetEnumerator()) {
+    $img = Join-Path $stockDir $kv.Name
+    if (-not (Test-Path $img)) { continue }
+    Info "Flashing $($kv.Name)..."
+    $r = cmd /c "fastboot flash $($kv.Value) `"$img`" 2>&1" 2>$null | Out-String
+    if ($r -match 'FAILED') { Err "flash $($kv.Name) failed: $r"; $ok = $false } else { Ok "$($kv.Name) flashed" }
+  }
+  if ($ok) { cmd /c 'fastboot reboot 2>&1' 2>$null | Out-Null; Ok 'Stock firmware restored! Rebooting...' }
+  else     { Warn 'Some partitions failed. Device may be in fastboot mode.' }
+}
+
 # ---- MAIN ------------------------------------------------------------------
+function DownloadOnly {
+  Step 'Download firmware files'
+  New-Item -ItemType Directory -Path $WORK_DIR -Force | Out-Null
+  $latestBuild = GetBuilds
+  $unofficial = $false
+  if (-not $latestBuild) {
+    if (Confirm 'Download unofficial GMS build from SourceForge instead?') { $unofficial = $true }
+  }
+  if ($unofficial) {
+    $files = @('boot.img','dtbo.img','vbmeta.img','vendor_boot.img','lineage-23.2-20260519-UNOFFICIAL-GMS-Q25.zip')
+    foreach ($f in $files) {
+      $dest = Join-Path $WORK_DIR $f
+      if (Test-Path $dest) { Info "$f already downloaded"; continue }
+      $url = "$SF_BASE/$f/download"
+      Info "Go download from SourceForge $SF_BASE"
+      Info "and place in $WORK_DIR"
+      Pause
+    }
+  } elseif ($latestBuild) {
+    Info "Found $($latestBuild.files.Count) files in build $($latestBuild.version)"
+    foreach ($f in $latestBuild.files) {
+      $dest = Join-Path $WORK_DIR $f.filename
+      $sizeStr = if ($f.size -gt 100MB) { "{0:N1} GB" -f ($f.size / 1GB) } else { "{0:N0} KB" -f ($f.size / 1KB) }
+      if (Test-Path $dest) {
+        $local = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+        if ($local -eq $f.sha256) { Ok "$($f.filename)  $sizeStr -- SHA256 OK" }
+        else { Warn "$($f.filename) -- SHA256 MISMATCH (expected $($f.sha256), got $local)" }
+        continue
+      }
+      if (DownloadFile -Url $f.url -Dest $dest -Name $f.filename) {
+        $local = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+        if ($local -eq $f.sha256) { Ok "$($f.filename)  $sizeStr -- SHA256 OK" }
+        else { Warn "$($f.filename) -- SHA256 MISMATCH (expected $($f.sha256), got $local)" }
+      } else {
+        GetFile $f.filename | Out-Null
+      }
+    }
+  } else {
+    foreach ($f in @('boot.img','dtbo.img','vbmeta.img','vendor_boot.img','lineage-*.zip')) { GetFile $f | Out-Null }
+  }
+  Ok 'All firmware files downloaded'
+}
+
 function Main {
   Banner
   CheckAdmin
@@ -823,25 +978,31 @@ function Main {
     $vbmetaImg  = Join-Path $WORK_DIR 'vbmeta.img'
     $vendorBoot = Join-Path $WORK_DIR 'vendor_boot.img'
   } elseif ($latestBuild) {
-    $baseUrl = "https://mirror.math.princeton.edu/pub/lineageos/full/$DEVICE"
-    $files   = @('boot.img','dtbo.img','vbmeta.img','vendor_boot.img')
-    $romFile = $latestBuild.files[0].filename
-    $files  += $romFile
-    
-      foreach ($f in $files) {
-            $dest = Join-Path $WORK_DIR $f
-            $url = "$baseUrl/$f"
-            
-            if (-not (DownloadFile -Url $url -Dest $dest -Name $f)) {
-                Warn "Mirror failed for $f; Please provide it manually."
-                GetFile $f | Out-Null
-            }
+    $files = $latestBuild.files
+
+    foreach ($f in $files) {
+      $dest = Join-Path $WORK_DIR $f.filename
+      $sizeStr = if ($f.size -gt 100MB) { "{0:N1} GB" -f ($f.size / 1GB) } else { "{0:N0} KB" -f ($f.size / 1KB) }
+      if (Test-Path $dest) {
+        $local = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+        if ($local -eq $f.sha256) { Ok "$($f.filename)  $sizeStr -- SHA256 OK" }
+        else { Warn "$($f.filename) -- SHA256 MISMATCH (expected $($f.sha256), got $local)" }
+        continue
       }
+      if (DownloadFile -Url $f.url -Dest $dest -Name $f.filename) {
+        $local = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+        if ($local -eq $f.sha256) { Ok "$($f.filename)  $sizeStr -- SHA256 OK" }
+        else { Warn "$($f.filename) -- SHA256 MISMATCH (expected $($f.sha256), got $local)" }
+      } else {
+        Warn "Failed to download $($f.filename); provide it manually."
+        GetFile $f.filename | Out-Null
+      }
+    }
     $bootImg    = Join-Path $WORK_DIR 'boot.img'
     $dtboImg    = Join-Path $WORK_DIR 'dtbo.img'
     $vbmetaImg  = Join-Path $WORK_DIR 'vbmeta.img'
     $vendorBoot = Join-Path $WORK_DIR 'vendor_boot.img'
-    $romZip     = Join-Path $WORK_DIR $romFile
+    $romZip     = Join-Path $WORK_DIR $latestBuild.files[0].filename
   } else {
     $bootImg    = GetFile 'boot.img'
     $dtboImg    = GetFile 'dtbo.img'
@@ -869,6 +1030,8 @@ function Main {
 
   if (Confirm 'Run post-install (APKs + wallpapers)?') { PostInstall }
 
+  # if (Confirm 'Flash back to stock firmware?') { FlashStock }
+
   # Banner
   Write-Host ""
   ShowWatermelon
@@ -878,18 +1041,22 @@ function Main {
 }
 
 # quick-run: .\install-lineageos-q25.ps1 -postinstall  (or -imei, -remediate, -bootloader, -unlock)
-$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','postinstall','check','w','b','ic','pi','if','u','c') } | Select-Object -First 1
+$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','relock','postinstall','stock','download','check','w','b','ic','pi','if','u','rl','c') } | Select-Object -First 1
 if ($quickCmd) {
   switch ($quickCmd) {
     'imei'        { CheckImei }
     'remediate'   { RemediateImei }
     'bootloader'  { CheckBootloader | Out-Null }
     'unlock'      { UnlockBootloader }
+    'relock'      { RelockBootloader }
     'postinstall' { PostInstall }
+    'stock'       { FlashStock }
+    'download'    { DownloadOnly }
     'ic'          { CheckImei }
     'if'          { RemediateImei }
     'b'           { CheckBootloader | Out-Null }
     'u'           { UnlockBootloader }
+    'rl'          { RelockBootloader }
     'pi'          { PostInstall }
     'w'           { ShowWatermelon }
     'check'       { CheckForUpdates }

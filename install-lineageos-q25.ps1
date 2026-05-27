@@ -28,7 +28,8 @@ Quick-Run Flags (Skip the full interactive guide):
   -unlock | -u        Launch the bootloader unlock sequence
   -relock | -rl       Re-lock the bootloader (stock restore)
   -stock              Flash stock firmware via fastboot
-  -download           Download all firmware files and exit
+  -download | -d      Download all firmware files and exit
+  -check | -c         Check LineageOS API for the latest builds.
 
 Run as Administrator for best results.
 '@
@@ -1041,7 +1042,7 @@ function Main {
 }
 
 # quick-run: .\install-lineageos-q25.ps1 -postinstall  (or -imei, -remediate, -bootloader, -unlock)
-$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','relock','postinstall','stock','download','check','w','b','ic','pi','if','u','rl','c') } | Select-Object -First 1
+$quickCmd = $args | ForEach-Object { $_.TrimStart('-') } | Where-Object { $_ -in @('imei','remediate','bootloader','unlock','relock','postinstall','stock','download','check','w','b','ic','pi','if','u','rl','c', 'd') } | Select-Object -First 1
 if ($quickCmd) {
   switch ($quickCmd) {
     'imei'        { CheckImei }
@@ -1052,6 +1053,8 @@ if ($quickCmd) {
     'postinstall' { PostInstall }
     'stock'       { FlashStock }
     'download'    { DownloadOnly }
+    'check'       { CheckForUpdates }
+    'd'           { DownloadOnly }
     'ic'          { CheckImei }
     'if'          { RemediateImei }
     'b'           { CheckBootloader | Out-Null }
@@ -1059,7 +1062,6 @@ if ($quickCmd) {
     'rl'          { RelockBootloader }
     'pi'          { PostInstall }
     'w'           { ShowWatermelon }
-    'check'       { CheckForUpdates }
     'c'           { CheckForUpdates }
   }
   exit

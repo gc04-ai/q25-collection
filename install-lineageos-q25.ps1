@@ -307,6 +307,8 @@ function CheckImei {
     cmd /c "adb shell am start -n com.android.imeisettings/com.android.imeisettings.ImeiSettings 2>nul" 2>$null | Out-Null
     Start-Sleep -Seconds 2
     Write-Host '   The IMEI app should now be visible on your phone.' -ForegroundColor Yellow
+    Info 'TAC 35847405 = BB Classic device. IMEI may be spoofed.' 
+    Info 'TAC 35772285 = Zinwa Factory. IMEI may be a factory-default.'
     $r = Read-Host '   Enter the first 8 digits (or press Enter to skip)'
     if ($r -match '^\d{8}$') { $tac = $r }
   }
@@ -706,7 +708,7 @@ function Sideload {
     Ok 'GApps installed'
   }
 
-  Write-Host '   If you are NOT installing GApps, click click Reboot system now' -ForegroundColor Yellow
+  Write-Host '   If you are not installing any more zips, click Reboot system now' -ForegroundColor Yellow
   if (Confirm 'Ready to reboot?') {
     Ok 'LineageOS is installed. First boot may take up to 15 minutes.'
   }
